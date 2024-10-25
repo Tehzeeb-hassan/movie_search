@@ -15,29 +15,33 @@ class MovieSearchScreen extends StatefulWidget {
 }
 
 class _MovieSearchScreenState extends State<MovieSearchScreen> {
-  var nameC = TextEditingController();
+  final nameC = TextEditingController();
+  final StreamController<dynamic> streamController = StreamController<dynamic>();
+  Stream<dynamic>? stream;
 
   Movie? movie;
-  StreamController streamController = StreamController();
-  Stream? stream;
 
   searchMovie({required String movieName}) async {
     streamController.add('loading');
 
-    String url =
+    final url =
         'https://www.omdbapi.com/?t=$movieName&plot=full&apikey=94e188aa';
-    var response = await http.get(Uri.parse(url));
+    try {
+      final response = await http.get(Uri.parse(url));
 
-    if (response.statusCode == 200) {
-      var jsonResponse = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body);
 
-      if (jsonResponse['Response'] == 'False') {
-        streamController.add('Movie Not Found');
+        if (jsonResponse['Response'] == 'False') {
+          streamController.add('Movie Not Found');
+        } else {
+          movie = Movie.fromJson(jsonResponse);
+          streamController.add(movie);
+        }
       } else {
-        movie = Movie.fromJson(jsonResponse);
-        streamController.add(movie);
+        streamController.add('Something went wrong');
       }
-    } else {
+    } catch (e) {
       streamController.add('Something went wrong');
     }
   }
@@ -47,6 +51,13 @@ class _MovieSearchScreenState extends State<MovieSearchScreen> {
     stream = streamController.stream;
     streamController.add('empty');
     super.initState();
+  }
+
+  @override
+  void dispose() {
+    streamController.close();
+    nameC.dispose();
+    super.dispose();
   }
 
   @override
@@ -73,10 +84,8 @@ class _MovieSearchScreenState extends State<MovieSearchScreen> {
                 Expanded(
                     child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white),
+                      backgroundColor: Colors.red, foregroundColor: Colors.white),
                   onPressed: () {
-                    //nameC.text = '';
                     nameC.clear();
                     streamController.add('empty');
                   },
@@ -87,16 +96,14 @@ class _MovieSearchScreenState extends State<MovieSearchScreen> {
                 Expanded(
                     child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white),
+                      backgroundColor: Colors.green, foregroundColor: Colors.white),
                   onPressed: () {
-                    String movieName = nameC.text.trim();
+                    final movieName = nameC.text.trim();
 
                     if (movieName.isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                           content: Text('Please provide movie name')));
                     } else {
-                      // call a function to fetch movie data
                       searchMovie(movieName: movieName);
                     }
                   },
@@ -106,7 +113,7 @@ class _MovieSearchScreenState extends State<MovieSearchScreen> {
               ],
             ),
             Expanded(
-              child: StreamBuilder(
+              child: StreamBuilder<dynamic>(
                 stream: stream,
                 builder: (context, snapshot) {
                   if (snapshot.data == 'loading') {
@@ -124,21 +131,39 @@ class _MovieSearchScreenState extends State<MovieSearchScreen> {
                   }
 
                   if (snapshot.data == 'Something went wrong') {
-                    return const Text('something went wrong');
+                    return const Text('Something went wrong. Please try again.');
                   }
 
-                  return SingleChildScrollView(
-                    child: Column(
-                      children: [
-                        Image.network(
-                          movie!.poster!,
-                          width: 200,
-                          height: 300,
-                        ),
-                        Text(movie!.actors!),
-                      ],
-                    ),
-                  );
+                  if (movie != null) {
+                    return SingleChildScrollView(
+                      child: Column(
+                        children: [
+                          Image.network(
+                            movie!.poster!,
+                            width: 200,
+                            height: 300,
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Icon(Icons.error, size: 100);
+                            },
+                          ),
+                          const Gap(10),
+                          Text(
+                            movie!.title!,
+                            style: const TextStyle(
+                                fontSize: 20, fontWeight: FontWeight.bold),
+                          ),
+                          const Gap(10),
+                          Text('Actors: ${movie!.actors!}'),
+                          Text('Year: ${movie!.year!}'),
+                          Text('Genre: ${movie!.genre!}'),
+                          const Gap(10),
+                          const Text('Plot:', style: TextStyle(fontWeight: FontWeight.bold)),
+                          Text(movie!.plot!),
+                        ],
+                      ),
+                    );
+                  }
+                  return const Text('Start your search!');
                 },
               ),
             ),
