@@ -140,7 +140,7 @@ class _MovieSearchScreenState extends State<MovieSearchScreen> {
                         children: [
                           Image.network(
                             movie!.poster!,
-                            width: 200,
+                            width: 300,
                             height: 300,
                             errorBuilder: (context, error, stackTrace) {
                               return const Icon(Icons.error, size: 100);
